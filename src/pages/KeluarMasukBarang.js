@@ -29,6 +29,7 @@
       keluarmasuk: "",
       tanggal: "",
       nominal: "",
+      PIC:"",
       keterangan: "",
     });
 
@@ -96,6 +97,11 @@
         return;
       }
 
+      if (!form.PIC || Number(form.PIC) <= 0) {
+        alert("Nominal harus diisi!");
+        return;
+      }
+
       if (form.keluarmasuk === "keluar" && Number(form.nominal) > saldoAktif) {
         alert(`Nominal melebihi saldo (${saldoAktif})`);
         return;
@@ -109,6 +115,7 @@
           keluarmasuk: form.keluarmasuk,
           tanggal: form.tanggal,
           nominal: Number(form.nominal),
+          PIC: form.PIC,
           keterangan: form.keterangan,
         };
 
@@ -131,6 +138,7 @@
           keluarmasuk: "",
           tanggal: "",
           nominal: "",
+          PIC:"",
           keterangan: "",
         });
       } catch (error) {
@@ -155,6 +163,7 @@
         keluarmasuk: item.keluarmasuk || "",
         tanggal: item.tanggal || "",
         nominal: item.nominal || "",
+        PIC: item.PIC || "",
         keterangan: item.keterangan || "",
       });
       setShowModal(true);
@@ -276,6 +285,7 @@
                     keluarmasuk: "",
                     tanggal: "",
                     nominal: "",
+                    PIC: "",
                     keterangan: "",
                   });
                 }}
@@ -301,6 +311,7 @@
                 <th style={layout.th}>KELUAR / MASUK</th>
                 <th style={layout.th}>TANGGAL</th>
                 <th style={layout.th}>NOMINAL</th>
+                <th style={layout.th}>PIC</th>
                 <th style={layout.th}>KETERANGAN BARANG</th>
                 <th style={layout.th}>ACTION</th>
               </tr>
@@ -327,6 +338,9 @@
 
                     {/* NOMINAL */}
                     <td style={layout.td}>{item.nominal || "-"}</td>
+
+                    {/* PIC */}
+                    <td style={layout.td}>{item.PIC || "-"}</td>
 
                     {/* KETERANGAN */}
                     <td style={layout.td}>{item.keterangan || "-"}</td>
@@ -475,6 +489,14 @@
               />
 
               <input
+                name="PIC"
+                placeholder="Masukan Nama PIC"
+                value={form.PIC}
+                onChange={handleChange}
+                style={layout.input}
+              />
+
+              <input
                 name="keterangan"
                 placeholder="Keterangan Barang"
                 value={form.keterangan}
@@ -520,6 +542,9 @@
               </p>
               <p>
                 <b>Nominal:</b> {detailData.nominal || "-"}
+              </p>
+              <p>
+                <b>PIC:</b> {detailData.PIC || "-"}
               </p>
               <p>
                 <b>Keterangan Barang:</b> {detailData.keterangan || "-"}
