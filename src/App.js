@@ -7,6 +7,8 @@ import Skylift from "./pages/Skylift";
 import TambahSkylift from "./pages/TambahSkylift";
 import Dashboard from "./pages/Dashboard";
 import KeluarMasukBarang from "./pages/KeluarMasukBarang";
+import PergantianAlatKerja from "./pages/PergantianAlatKerja";
+import PeminjamanBarang from "./pages/PeminjamanBarang";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
       <Route path="/skylift" element={<Skylift />} />
       <Route path="/tambahskylift" element={<TambahSkylift />} />
       <Route path="/keluarmasuk" element={<KeluarMasukBarang />} />
+      <Route path="/pergantian" element={<PergantianAlatKerja />} />
+      <Route path="/peminjaman" element={<PeminjamanBarang />} />
     </Routes>
   );
 }
