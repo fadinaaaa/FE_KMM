@@ -36,6 +36,10 @@ const PergantianAlatKerja = () => {
   const [sigError, setSigError] = useState("");
   const [sigPreview, setSigPreview] = useState(""); // ttd lama (optional)
 
+  // ===== SALDO VALIDATION =====
+  const [saldoAktif, setSaldoAktif] = useState(0);
+  const [nominalWarn, setNominalWarn] = useState("");
+
   // ===== FORM =====
   const [form, setForm] = useState({
     id: "",
@@ -89,7 +93,7 @@ const PergantianAlatKerja = () => {
         nominal: Number(r.nominal) || 0,
         pic: r.pic || "",
         foto_lama_url: r.foto_lama_url || "",
-        tanda_tangan_url: r.tanda_tangan_url || "", // kalau backend kirim url ttd
+        tanda_tangan_url: r.tanda_tangan_url || "",
       }));
 
       setRows(normalized);
@@ -111,7 +115,8 @@ const PergantianAlatKerja = () => {
         nama: it.nama || "",
         satuan: it.satuan || "",
         jenis: it.jenis || "",
-        saldo: Number(it.saldo) || 0,
+        // ✅ dukung 2 kemungkinan field: saldo atau stok
+        saldo: Number(it.saldo ?? it.stok) || 0,
       }));
 
       setItems(normalized);
@@ -140,6 +145,10 @@ const PergantianAlatKerja = () => {
     setSigError("");
     setSigPreview("");
 
+    // ✅ reset saldo & warning
+    setSaldoAktif(0);
+    setNominalWarn("");
+
     if (fileRef.current) fileRef.current.value = null;
     sigRef.current?.clear();
   };
@@ -164,6 +173,11 @@ const PergantianAlatKerja = () => {
       foto_lama: null,
     });
 
+    // ✅ set saldo aktif berdasarkan item_id (biar validasi nominal jalan saat edit)
+    const found = items.find((it) => String(it.id) === String(row.item_id));
+    setSaldoAktif(Number(found?.saldo) || 0);
+    setNominalWarn("");
+
     setPreviewUrl(row.foto_lama_url || "");
     setSigPreview(row.tanda_tangan_url || "");
 
@@ -185,6 +199,9 @@ const PergantianAlatKerja = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ kalau nominal berubah via handleChange biasa, kita biarkan
+    // (tapi nominal input di bawah sudah pakai handler khusus)
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -197,12 +214,18 @@ const PergantianAlatKerja = () => {
 
   // ================= AUTOCOMPLETE =================
   const onNamaChange = (value) => {
+    // user ngetik → reset item_id sampai pilih dari dropdown
     setForm((prev) => ({
       ...prev,
       nama_barang: value,
       item_id: "",
       satuan: "",
+      nominal: "", // ✅ reset nominal biar tidak nyangkut
     }));
+
+    // ✅ reset saldo aktif + warning
+    setSaldoAktif(0);
+    setNominalWarn("");
 
     if (value.trim().length >= 1) {
       const filtered = items.filter((it) =>
@@ -223,16 +246,20 @@ const PergantianAlatKerja = () => {
       nama_barang: it.nama,
       satuan: it.satuan,
     }));
+
+    // ✅ simpan saldo item terpilih
+    setSaldoAktif(Number(it.saldo) || 0);
+    setNominalWarn("");
+
     setShowAuto(false);
   };
 
   // ================= SIGNATURE (FIX ERROR getTrimmedCanvas) =================
-  // ✅ TRIM manual tanpa getTrimmedCanvas (aman untuk alpha)
   const trimSignatureCanvasToDataURL = () => {
     if (!sigRef.current) return "";
     if (sigRef.current.isEmpty()) return "";
 
-    const canvas = sigRef.current.getCanvas(); // ✅ aman
+    const canvas = sigRef.current.getCanvas();
     const ctx = canvas.getContext("2d");
     const { width, height } = canvas;
 
@@ -308,6 +335,13 @@ const PergantianAlatKerja = () => {
       alert("Nominal wajib diisi!");
       return;
     }
+
+    // ✅ double-check nominal vs saldo
+    if (saldoAktif > 0 && Number(form.nominal) > saldoAktif) {
+      alert(`Nominal melebihi saldo. Maksimal: ${saldoAktif}`);
+      return;
+    }
+
     if (!form.pic) {
       alert("PIC wajib diisi!");
       return;
@@ -325,8 +359,6 @@ const PergantianAlatKerja = () => {
       fd.append("tanggal", form.tanggal);
       fd.append("nominal", String(Number(form.nominal)));
       fd.append("pic", form.pic);
-
-      // ✅ kirim base64 ttd
       fd.append("tanda_tangan_base64", ttdBase64);
 
       if (form.foto_lama) fd.append("foto_lama", form.foto_lama);
@@ -345,6 +377,8 @@ const PergantianAlatKerja = () => {
       alert("Simpan berhasil ✅");
       closeModal();
       fetchPergantian();
+      // optional: refresh items biar saldo tampilan terbaru (kalau backend update saldo)
+      // fetchItems();
     } catch (err) {
       console.error(err);
       if (err.response?.status === 422) {
@@ -371,6 +405,7 @@ const PergantianAlatKerja = () => {
       await axios.delete(`${API_URL}/pergantian-alat/${id}`);
       alert("Data berhasil dihapus");
       fetchPergantian();
+      // optional: fetchItems();
     } catch (err) {
       console.error(err);
       alert("Gagal menghapus data");
@@ -512,7 +547,8 @@ const PergantianAlatKerja = () => {
                     >
                       {it.nama}{" "}
                       <span style={{ opacity: 0.6 }}>
-                        ({it.kode || "-"} • {it.satuan || "-"})
+                        ({it.kode || "-"} • {it.satuan || "-"} • saldo:{" "}
+                        {it.saldo})
                       </span>
                     </div>
                   ))}
@@ -537,16 +573,53 @@ const PergantianAlatKerja = () => {
               style={layout.input}
             />
 
-            {/* Nominal */}
+            {/* Nominal (VALIDASI SALDO) */}
             <input
               name="nominal"
               type="number"
               min={1}
-              placeholder="Nominal"
+              placeholder={
+                saldoAktif
+                  ? `Nominal (Max ${saldoAktif})`
+                  : "Nominal"
+              }
               value={form.nominal}
-              onChange={handleChange}
-              style={layout.input}
+              disabled={!form.item_id}
+              onChange={(e) => {
+                let value = Number(e.target.value);
+
+                if (!value || value < 1) value = "";
+
+                // ✅ nominal tidak boleh melebihi saldo
+                if (saldoAktif > 0 && value !== "" && value > saldoAktif) {
+                  value = saldoAktif;
+                  setNominalWarn(
+                    `Nominal tidak boleh lebih dari saldo (${saldoAktif}).`
+                  );
+                } else {
+                  setNominalWarn("");
+                }
+
+                setForm((prev) => ({ ...prev, nominal: value }));
+              }}
+              style={{
+                ...layout.input,
+                background: !form.item_id ? "#eee" : "white",
+              }}
             />
+
+            {nominalWarn ? (
+              <div
+                style={{
+                  color: "red",
+                  marginTop: -6,
+                  marginBottom: 10,
+                  fontSize: 13,
+                }}
+              >
+                {nominalWarn}
+              </div>
+            ) : null}
 
             {/* PIC */}
             <input
@@ -578,7 +651,9 @@ const PergantianAlatKerja = () => {
 
             {/* TANDA TANGAN (RESPONSIVE) */}
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Tanda Tangan</div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                Tanda Tangan
+              </div>
 
               <div
                 ref={sigBoxRef}
@@ -817,7 +892,6 @@ const layout = {
     borderRadius: "6px",
   },
 
-  // ✅ overlay bisa scroll, modal maxHeight + overflow
   overlay: {
     position: "fixed",
     top: 0,
