@@ -32,9 +32,20 @@ const BarangDanAlat = () => {
     fetchData();
   }, []);
 
+  const role = localStorage.getItem("role");
+  const isAdmin = role === "admin";
+
+  const token = localStorage.getItem("token");
+
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+
   const fetchData = async () => {
     try {
-      const res = await axios.get(`${API_URL}/items`);
+      const res = await axios.get(`${API_URL}/items`, authHeader);
       // Normalisasi data agar konsisten (mengonversi field dari backend ke state frontend)
       const normalized = res.data.map((item) => ({
         id: item.kode || String(item.id),
@@ -79,33 +90,36 @@ const BarangDanAlat = () => {
 
     try {
       // Pastikan nama field (kiri) sesuai dengan kolom di Database/Backend Anda
-     const payload = {
-  kode: form.id,
-  jenis: form.jenis.toLowerCase(), // FIX INVALID
-  nama: form.nama,
-  satuan: form.satuan,
-  saldo: Number(form.saldo),
-  minimal_saldo: Number(form.minimal),
-};
+      const payload = {
+        kode: form.id,
+        jenis: form.jenis.toLowerCase(), // FIX INVALID
+        nama: form.nama,
+        satuan: form.satuan,
+        saldo: Number(form.saldo),
+        minimal_saldo: Number(form.minimal),
+      };
 
-
-
-     if (isEdit) {
-  await axios.put(`${API_URL}/items`, payload);
-} else {
-  await axios.post(`${API_URL}/items`, payload);
-}
-
+      if (isEdit) {
+        await axios.put(`${API_URL}/items`, payload, authHeader);
+      } else {
+        await axios.post(`${API_URL}/items`, payload, authHeader);
+      }
 
       alert("Simpan Berhasil!");
       fetchData();
       setShowModal(false);
       setIsEdit(false);
-      setForm({ jenis: "Barang", id: "", nama: "", satuan: "", saldo: "", minimal: "" });
-      
+      setForm({
+        jenis: "Barang",
+        id: "",
+        nama: "",
+        satuan: "",
+        saldo: "",
+        minimal: "",
+      });
     } catch (error) {
       console.error("Detail Error 422:", error.response?.data);
-      
+
       // Mengambil pesan error validasi dari backend (Laravel style)
       if (error.response?.status === 422) {
         const errors = error.response.data.errors; // Ambil daftar kolom yang error
@@ -142,26 +156,26 @@ const BarangDanAlat = () => {
 
   // ================= DELETE =================
   const handleDelete = async (id) => {
-  if (!window.confirm("Yakin hapus data?")) return;
+    if (!window.confirm("Yakin hapus data?")) return;
 
-  try {
-    await axios.delete(`${API_URL}/items`, {
-      data: {
-        kode: id,   // ← WAJIB pakai "data"
-      },
-    });
+    try {
+      await axios.delete(`${API_URL}/items`, authHeader, {
+        data: {
+          kode: id, // ← WAJIB pakai "data"
+        },
+      });
 
-    alert("Data berhasil dihapus");
-    fetchData();
-  } catch (error) {
-    console.error("Delete error:", error.response?.data);
-    alert("Gagal menghapus data");
-  }
-};
+      alert("Data berhasil dihapus");
+      fetchData();
+    } catch (error) {
+      console.error("Delete error:", error.response?.data);
+      alert("Gagal menghapus data");
+    }
+  };
 
   // ================= EXPORT =================
   const handleExport = () => {
-    window.open(`${API_URL}/items-export`, "_blank");
+    window.open(`${API_URL}/items-export`, "_blank", authHeader);
   };
 
   // ================= IMPORT =================
@@ -173,7 +187,7 @@ const BarangDanAlat = () => {
     formData.append("file", file);
 
     try {
-      await axios.post(`${API_URL}/items-import`, formData);
+      await axios.post(`${API_URL}/items-import`, formData, authHeader);
       alert("Import berhasil ✅");
       fetchData();
       setShowImportMenu(false);
@@ -184,26 +198,24 @@ const BarangDanAlat = () => {
     }
   };
 
- const handleDownloadTemplate = () => {
-  const worksheetData = [
-    {
-      kode: "",
-      nama: "",
-      jenis: "",        // ✅ KOSONG
-      satuan: "",
-      saldo: "",
-      minimal_saldo: "",
-    },
-  ];
+  const handleDownloadTemplate = () => {
+    const worksheetData = [
+      {
+        kode: "",
+        nama: "",
+        jenis: "", // ✅ KOSONG
+        satuan: "",
+        saldo: "",
+        minimal_saldo: "",
+      },
+    ];
 
-  const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
 
-  XLSX.writeFile(workbook, "template_inventory.xlsx");
-};
-
-
+    XLSX.writeFile(workbook, "template_inventory.xlsx");
+  };
 
   return (
     <div style={layout.container}>
@@ -219,23 +231,58 @@ const BarangDanAlat = () => {
           />
 
           <div>
-            <button style={layout.btn} onClick={handleExport}>Export</button>
-            <div style={{ position: "relative", display: "inline-block" }}>
-              <button style={layout.btn} onClick={() => setShowImportMenu(!showImportMenu)}>Import</button>
-              {showImportMenu && (
-                <div style={layout.dropdown}>
-                  <button onClick={handleDownloadTemplate} style={layout.dropBtn}>Download Template</button>
-                  <button onClick={() => fileInputRef.current.click()} style={layout.dropBtn}>Upload File</button>
-                </div>
-              )}
-            </div>
-            <button
-              style={layout.btn}
-              onClick={() => { setShowModal(true); setIsEdit(false); }}
-            >
-              + Baru
+            <button style={layout.btn} onClick={handleExport}>
+              Export
             </button>
-            <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={handleImportFile} />
+            <div style={{ position: "relative", display: "inline-block" }}>
+              {isAdmin && (
+                <>
+                  <div
+                    style={{ position: "relative", display: "inline-block" }}
+                  >
+                    <button
+                      style={layout.btn}
+                      onClick={() => setShowImportMenu(!showImportMenu)}
+                    >
+                      Import
+                    </button>
+                    {showImportMenu && (
+                      <div style={layout.dropdown}>
+                        <button
+                          onClick={handleDownloadTemplate}
+                          style={layout.dropBtn}
+                        >
+                          Download Template
+                        </button>
+                        <button
+                          onClick={() => fileInputRef.current.click()}
+                          style={layout.dropBtn}
+                        >
+                          Upload File
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    style={layout.btn}
+                    onClick={() => {
+                      setShowModal(true);
+                      setIsEdit(false);
+                    }}
+                  >
+                    + Baru
+                  </button>
+                </>
+              )}
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleImportFile}
+              />
+            </div>
           </div>
         </div>
 
@@ -263,20 +310,48 @@ const BarangDanAlat = () => {
               .map((item, index) => (
                 <tr
                   key={index}
-                  style={{ backgroundColor: item.saldo < item.minimal ? "#FFE5E5" : "transparent" }}
+                  style={{
+                    backgroundColor:
+                      item.saldo < item.minimal ? "#FFE5E5" : "transparent",
+                  }}
                 >
                   <td style={layout.td}>{item.id}</td>
                   <td style={layout.td}>{item.nama}</td>
                   <td style={layout.td}>{item.satuan}</td>
-                  <td style={{ ...layout.td, color: item.saldo < item.minimal ? "red" : "black", fontWeight: item.saldo < item.minimal ? "bold" : "normal" }}>
+                  <td
+                    style={{
+                      ...layout.td,
+                      color: item.saldo < item.minimal ? "red" : "black",
+                      fontWeight: item.saldo < item.minimal ? "bold" : "normal",
+                    }}
+                  >
                     {item.saldo}
                   </td>
                   <td style={layout.td}>{item.minimal}</td>
                   <td style={layout.td}>
                     <div style={layout.actionWrap}>
-                      <button style={layout.viewBtn} onClick={() => handleView(item)}><FaEye /></button>
-                      <button style={layout.editBtn} onClick={() => handleEdit(item)}><FaEdit /></button>
-                      <button style={layout.deleteBtn} onClick={() => handleDelete(item.id)}><FaTrash /></button>
+                      <button
+                        style={layout.viewBtn}
+                        onClick={() => handleView(item)}
+                      >
+                        <FaEye />
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            style={layout.editBtn}
+                            onClick={() => handleEdit(item)}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            style={layout.deleteBtn}
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -290,18 +365,60 @@ const BarangDanAlat = () => {
         <div style={layout.overlay}>
           <div style={layout.modal}>
             <h3>{isEdit ? "Edit Data" : "Tambah Data"}</h3>
-            <select name="jenis" value={form.jenis} onChange={handleChange} style={layout.input}>
+            <select
+              name="jenis"
+              value={form.jenis}
+              onChange={handleChange}
+              style={layout.input}
+            >
               <option value="Barang">Barang</option>
               <option value="Alat">Alat</option>
             </select>
-            <input value={form.id} disabled style={{ ...layout.input, background: "#eee" }} />
-            <input name="nama" placeholder="Nama" value={form.nama} onChange={handleChange} style={layout.input} />
-            <input name="satuan" placeholder="Satuan" value={form.satuan} onChange={handleChange} style={layout.input} />
-            <input name="saldo" type="number" placeholder="Saldo" value={form.saldo} onChange={handleChange} style={layout.input} />
-            <input name="minimal" type="number" placeholder="Minimal" value={form.minimal} onChange={handleChange} style={layout.input} />
+            <input
+              value={form.id}
+              disabled
+              style={{ ...layout.input, background: "#eee" }}
+            />
+            <input
+              name="nama"
+              placeholder="Nama"
+              value={form.nama}
+              onChange={handleChange}
+              style={layout.input}
+            />
+            <input
+              name="satuan"
+              placeholder="Satuan"
+              value={form.satuan}
+              onChange={handleChange}
+              style={layout.input}
+            />
+            <input
+              name="saldo"
+              type="number"
+              placeholder="Saldo"
+              value={form.saldo}
+              onChange={handleChange}
+              style={layout.input}
+            />
+            <input
+              name="minimal"
+              type="number"
+              placeholder="Minimal"
+              value={form.minimal}
+              onChange={handleChange}
+              style={layout.input}
+            />
             <div style={layout.modalBtnWrap}>
-              <button onClick={handleSave} style={layout.saveBtn}>Simpan</button>
-              <button onClick={() => setShowModal(false)} style={layout.cancelBtn}>Batal</button>
+              <button onClick={handleSave} style={layout.saveBtn}>
+                Simpan
+              </button>
+              <button
+                onClick={() => setShowModal(false)}
+                style={layout.cancelBtn}
+              >
+                Batal
+              </button>
             </div>
           </div>
         </div>
@@ -312,12 +429,27 @@ const BarangDanAlat = () => {
         <div style={layout.overlay}>
           <div style={layout.modal}>
             <h3>Detail Inventory</h3>
-            <p><b>ID:</b> {detailData.id}</p>
-            <p><b>Nama:</b> {detailData.nama}</p>
-            <p><b>Satuan:</b> {detailData.satuan}</p>
-            <p><b>Saldo:</b> {detailData.saldo}</p>
-            <p><b>Minimal:</b> {detailData.minimal}</p>
-            <button onClick={() => setShowDetail(false)} style={{ ...layout.cancelBtn, width: "100%" }}>Tutup</button>
+            <p>
+              <b>ID:</b> {detailData.id}
+            </p>
+            <p>
+              <b>Nama:</b> {detailData.nama}
+            </p>
+            <p>
+              <b>Satuan:</b> {detailData.satuan}
+            </p>
+            <p>
+              <b>Saldo:</b> {detailData.saldo}
+            </p>
+            <p>
+              <b>Minimal:</b> {detailData.minimal}
+            </p>
+            <button
+              onClick={() => setShowDetail(false)}
+              style={{ ...layout.cancelBtn, width: "100%" }}
+            >
+              Tutup
+            </button>
           </div>
         </div>
       )}
@@ -328,19 +460,19 @@ const BarangDanAlat = () => {
 const layout = {
   container: {
     display: "flex",
-    height: "100vh"
+    height: "100vh",
   },
 
   content: {
     flex: 1,
     padding: "30px",
-    overflowY: "auto"
+    overflowY: "auto",
   },
 
   topBar: {
     display: "flex",
     justifyContent: "space-between",
-    marginBottom: "20px"
+    marginBottom: "20px",
   },
 
   search: {
@@ -350,7 +482,7 @@ const layout = {
     border: "none",
     background: "#9E9E9E",
     color: "white",
-    outline: "none"
+    outline: "none",
   },
 
   btn: {
@@ -360,7 +492,7 @@ const layout = {
     borderRadius: "20px",
     border: "none",
     marginLeft: "10px",
-    cursor: "pointer"
+    cursor: "pointer",
   },
 
   table: {
@@ -368,7 +500,7 @@ const layout = {
     borderCollapse: "collapse",
     background: "white",
     borderRadius: "12px",
-    overflow: "hidden"
+    overflow: "hidden",
   },
 
   /* === HEADER TABLE === */
@@ -377,7 +509,7 @@ const layout = {
     borderBottom: "2px solid #ddd",
     textAlign: "center",
     background: "#F5F6FA",
-    fontWeight: "600"
+    fontWeight: "600",
   },
 
   /* === ISI TABLE === */
@@ -385,13 +517,13 @@ const layout = {
     padding: "12px",
     borderBottom: "1px solid #eee",
     textAlign: "center",
-    transition: "0.2s"
+    transition: "0.2s",
   },
 
   actionWrap: {
     display: "flex",
     justifyContent: "center",
-    gap: "10px"
+    gap: "10px",
   },
 
   viewBtn: {
@@ -399,7 +531,7 @@ const layout = {
     border: "none",
     padding: "7px 10px",
     cursor: "pointer",
-    borderRadius: "6px"
+    borderRadius: "6px",
   },
 
   editBtn: {
@@ -408,7 +540,7 @@ const layout = {
     border: "none",
     padding: "7px 10px",
     cursor: "pointer",
-    borderRadius: "6px"
+    borderRadius: "6px",
   },
 
   deleteBtn: {
@@ -417,7 +549,7 @@ const layout = {
     border: "none",
     padding: "7px 10px",
     cursor: "pointer",
-    borderRadius: "6px"
+    borderRadius: "6px",
   },
 
   overlay: {
@@ -430,14 +562,14 @@ const layout = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 1000
+    zIndex: 1000,
   },
 
   modal: {
     background: "white",
     padding: "20px",
     width: "400px",
-    borderRadius: "12px"
+    borderRadius: "12px",
   },
 
   input: {
@@ -446,12 +578,12 @@ const layout = {
     marginBottom: "10px",
     boxSizing: "border-box",
     borderRadius: "6px",
-    border: "1px solid #ddd"
+    border: "1px solid #ddd",
   },
 
   modalBtnWrap: {
     display: "flex",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
   },
 
   saveBtn: {
@@ -461,7 +593,7 @@ const layout = {
     padding: "10px",
     border: "none",
     cursor: "pointer",
-    borderRadius: "6px"
+    borderRadius: "6px",
   },
 
   cancelBtn: {
@@ -471,7 +603,7 @@ const layout = {
     padding: "10px",
     border: "none",
     cursor: "pointer",
-    borderRadius: "6px"
+    borderRadius: "6px",
   },
 
   dropdown: {
@@ -482,7 +614,7 @@ const layout = {
     border: "1px solid #ddd",
     padding: "10px",
     borderRadius: "8px",
-    zIndex: 99
+    zIndex: 99,
   },
 
   dropBtn: {
@@ -492,8 +624,8 @@ const layout = {
     padding: "6px",
     border: "none",
     background: "#F1F1F1",
-    borderRadius: "5px"
-  }
+    borderRadius: "5px",
+  },
 };
 
 export default BarangDanAlat;

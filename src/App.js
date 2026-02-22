@@ -9,14 +9,16 @@ import Dashboard from "./pages/Dashboard";
 import KeluarMasukBarang from "./pages/KeluarMasukBarang";
 import PergantianAlatKerja from "./pages/PergantianAlatKerja";
 import PeminjamanBarang from "./pages/PeminjamanBarang";
+import LoginPage from "./pages/LoginPage";
 
 function App() {
   return (
     <Routes>
 
       {/* DEFAULT PAGE */}
-      <Route path="/" element={<Dashboard />} />
-
+      <Route path="/" element={<LoginPage />} />
+      
+      <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/barang" element={<BarangDanAlat />} />
       <Route path="/tambah-barang" element={<TambahBarangDanAlat />} />
       <Route path="/skylift" element={<Skylift />} />

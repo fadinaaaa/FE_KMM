@@ -58,6 +58,17 @@ const PeminjamanBarang = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const token = localStorage.getItem("token");
+
+  const role = localStorage.getItem("role");
+  const isAdmin = role === "admin";
+
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+
   // Signature resize listener (saat modal terbuka)
   useEffect(() => {
     if (!showModal) return;
@@ -79,7 +90,7 @@ const PeminjamanBarang = () => {
   // GET transaksi peminjaman
   const fetchPeminjaman = async () => {
     try {
-      const res = await axios.get(`${API_URL}/peminjaman-barang`);
+      const res = await axios.get(`${API_URL}/peminjaman-barang`, authHeader);
       const list = res.data?.data || res.data || [];
 
       const normalized = list.map((r) => ({
@@ -106,7 +117,7 @@ const PeminjamanBarang = () => {
   // Kalau mau hanya barang saja: filter it.jenis === 'barang'
   const fetchItems = async () => {
     try {
-      const res = await axios.get(`${API_URL}/items`);
+      const res = await axios.get(`${API_URL}/items`, authHeader);
       const list = res.data || [];
 
       const normalized = list.map((it) => ({
@@ -337,11 +348,16 @@ const PeminjamanBarang = () => {
 
       if (isEdit) {
         fd.append("_method", "PUT");
-        await axios.post(`${API_URL}/peminjaman-barang/${form.id}`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await axios.post(
+          `${API_URL}/peminjaman-barang/${form.id}`,
+          fd,
+          authHeader,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
       } else {
-        await axios.post(`${API_URL}/peminjaman-barang`, fd, {
+        await axios.post(`${API_URL}/peminjaman-barang`, fd, authHeader, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
@@ -372,7 +388,7 @@ const PeminjamanBarang = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus data?")) return;
     try {
-      await axios.delete(`${API_URL}/peminjaman-barang/${id}`);
+      await axios.delete(`${API_URL}/peminjaman-barang/${id}`, authHeader);
       alert("Data berhasil dihapus");
       fetchPeminjaman();
     } catch (err) {
@@ -383,7 +399,7 @@ const PeminjamanBarang = () => {
 
   // ================= EXPORT =================
   const handleExport = () => {
-    window.open(`${API_URL}/peminjaman-barang-export`, "_blank");
+    window.open(`${API_URL}/peminjaman-barang-export`, "_blank", authHeader);
   };
 
   // ================= IMPORT =================
@@ -395,7 +411,11 @@ const PeminjamanBarang = () => {
     formData.append("file", file);
 
     try {
-      await axios.post(`${API_URL}/peminjaman-barang-import`, formData);
+      await axios.post(
+        `${API_URL}/peminjaman-barang-import`,
+        formData,
+        authHeader,
+      );
       alert("Import berhasil ✅");
       fetchPeminjaman();
       setShowImportMenu(false);
@@ -439,43 +459,56 @@ const PeminjamanBarang = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div>
-            <button style={layout.btn} onClick={handleExport}>
-              Export
-            </button>
+<div>
+          {/* EXPORT */}
+          <button style={layout.btn} onClick={handleExport}>
+            Export
+          </button>
+
+          {/* IMPORT ADMIN */}
+          {isAdmin && (
             <div style={{ position: "relative", display: "inline-block" }}>
               <button
                 style={layout.btn}
-                onClick={() => setShowImportMenu(!showImportMenu)}>
+                onClick={() => setShowImportMenu(!showImportMenu)}
+              >
                 Import
               </button>
+
               {showImportMenu && (
                 <div style={layout.dropdown}>
                   <button
                     onClick={handleDownloadTemplate}
-                    style={layout.dropBtn}>
+                    style={layout.dropBtn}
+                  >
                     Download Template
                   </button>
                   <button
                     onClick={() => fileInputRef.current.click()}
-                    style={layout.dropBtn}>
+                    style={layout.dropBtn}
+                  >
                     Upload File
                   </button>
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAMBAH */}
+          {isAdmin && (
             <button style={layout.btn} onClick={openCreate}>
               + Baru
             </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: "none" }}
-              onChange={handleImportFile}
-            />
-          </div>
-        </div>
+          )}
 
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleImportFile}
+          />
+        </div>
+      </div>
         {/* TABLE */}
         <table style={layout.table}>
           <thead>
@@ -515,7 +548,8 @@ const PeminjamanBarang = () => {
                       <a
                         href={r.foto_barang_url}
                         target="_blank"
-                        rel="noreferrer">
+                        rel="noreferrer"
+                      >
                         Lihat Foto
                       </a>
                     ) : (
@@ -528,7 +562,8 @@ const PeminjamanBarang = () => {
                       <a
                         href={r.tanda_tangan_url}
                         target="_blank"
-                        rel="noreferrer">
+                        rel="noreferrer"
+                      >
                         Lihat TTD
                       </a>
                     ) : (
@@ -542,19 +577,24 @@ const PeminjamanBarang = () => {
                     <div style={layout.actionWrap}>
                       <button
                         style={layout.viewBtn}
-                        onClick={() => openView(r)}>
+                        onClick={() => openView(r)}
+                      >
                         <FaEye />
                       </button>
-                      <button
-                        style={layout.editBtn}
+                      {isAdmin && (
+                        <>
+                          <button
+                            style={layout.editBtn}
                         onClick={() => openEdit(r)}>
                         <FaEdit />
-                      </button>
-                      <button
-                        style={layout.deleteBtn}
+                          </button>
+                          <button
+                            style={layout.deleteBtn}
                         onClick={() => handleDelete(r.id)}>
                         <FaTrash />
-                      </button>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -593,7 +633,8 @@ const PeminjamanBarang = () => {
                     <div
                       key={it.id}
                       style={layout.autocompleteItem}
-                      onMouseDown={() => pickItem(it)}>
+                      onMouseDown={() => pickItem(it)}
+                    >
                       {it.nama}{" "}
                       <span style={{ opacity: 0.6 }}>
                         ({it.kode || "-"} • {it.satuan || "-"})
@@ -667,7 +708,8 @@ const PeminjamanBarang = () => {
                   borderRadius: 8,
                   overflow: "hidden",
                   width: "100%",
-                }}>
+                }}
+              >
                 <SignatureCanvas
                   ref={sigRef}
                   penColor="black"
@@ -690,14 +732,16 @@ const PeminjamanBarang = () => {
                 <button
                   type="button"
                   style={{ ...layout.smallBtn, background: "#666" }}
-                  onClick={clearSignature}>
+                  onClick={clearSignature}
+                >
                   Hapus TTD
                 </button>
 
                 <button
                   type="button"
                   style={{ ...layout.smallBtn, background: "#2F1F6B" }}
-                  onClick={previewSignature}>
+                  onClick={previewSignature}
+                >
                   Preview
                 </button>
               </div>
@@ -790,7 +834,8 @@ const PeminjamanBarang = () => {
 
             <button
               onClick={() => setShowDetail(false)}
-              style={{ ...layout.cancelBtn, width: "100%" }}>
+              style={{ ...layout.cancelBtn, width: "100%" }}
+            >
               Tutup
             </button>
           </div>

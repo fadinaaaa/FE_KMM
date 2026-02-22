@@ -49,7 +49,7 @@ const TambahBarangDanAlat = () => {
 
     localStorage.setItem("barangData", JSON.stringify(newData));
 
-    navigate("/");
+    navigate("/dashboard");
   };
 
   return (

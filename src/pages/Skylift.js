@@ -29,9 +29,19 @@ const Skylift = () => {
     fetchData();
   }, []);
 
+   const role = localStorage.getItem("role");
+  const isAdmin = role === "admin";
+
+  const token = localStorage.getItem("token");
+
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
   const fetchData = async () => {
     try {
-      const res = await axios.get(`${API_URL}/skylifts`);
+      const res = await axios.get(`${API_URL}/skylifts`, authHeader);
 
       const normalized = res.data.map((item) => ({
         db_id: item.id,
@@ -65,15 +75,18 @@ const Skylift = () => {
 
     try {
       if (isEdit) {
-        await axios.put(`${API_URL}/skylifts/${form.db_id}`, payload);
+        await axios.put(
+          `${API_URL}/skylifts/${form.db_id}`,
+          payload,
+          authHeader,
+        );
       } else {
-        await axios.post(`${API_URL}/skylifts`, payload);
+        await axios.post(`${API_URL}/skylifts`, payload, authHeader);
       }
 
       alert("Simpan berhasil ✅");
       fetchData();
       resetForm();
-
     } catch (error) {
       console.error(error.response?.data);
 
@@ -122,7 +135,7 @@ const Skylift = () => {
     if (!window.confirm("Yakin hapus skylift?")) return;
 
     try {
-      await axios.delete(`${API_URL}/skylifts/${id}`);
+      await axios.delete(`${API_URL}/skylifts/${id}`, authHeader);
       fetchData();
     } catch (error) {
       console.error(error);
@@ -132,7 +145,7 @@ const Skylift = () => {
 
   // ================= EXPORT =================
   const handleExport = () => {
-    window.open(`${API_URL}/skylifts-export`, "_blank");
+    window.open(`${API_URL}/skylifts-export`, "_blank", authHeader);
   };
 
   // ================= IMPORT =================
@@ -144,7 +157,7 @@ const Skylift = () => {
     formData.append("file", file);
 
     try {
-      await axios.post(`${API_URL}/skylifts-import`, formData);
+      await axios.post(`${API_URL}/skylifts-import`, formData, authHeader);
       alert("Import berhasil ✅");
       fetchData();
       setShowImportMenu(false);
@@ -165,287 +178,355 @@ const Skylift = () => {
   };
 
   return (
-    <div style={layout.container}>
-      <Sidebar />
+  <div style={layout.container}>
+    <Sidebar />
 
-      <div style={layout.content}>
-        {/* TOP BAR */}
-        <div style={layout.topBar}>
-          <input
-            placeholder="Cari Nama"
-            style={layout.search}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+    <div style={layout.content}>
+      {/* TOP BAR */}
+      <div style={layout.topBar}>
+        <input
+          placeholder="Cari Nama"
+          style={layout.search}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
 
-          <div>
-            <button style={layout.btn} onClick={handleExport}>Export</button>
+        <div>
+          {/* EXPORT */}
+          <button style={layout.btn} onClick={handleExport}>
+            Export
+          </button>
 
+          {/* IMPORT ADMIN */}
+          {isAdmin && (
             <div style={{ position: "relative", display: "inline-block" }}>
-              <button style={layout.btn} onClick={() => setShowImportMenu(!showImportMenu)}>Import</button>
+              <button
+                style={layout.btn}
+                onClick={() => setShowImportMenu(!showImportMenu)}
+              >
+                Import
+              </button>
 
               {showImportMenu && (
                 <div style={layout.dropdown}>
-                  <button style={layout.dropBtn} onClick={handleDownloadTemplate}>Download Template</button>
-                  <button style={layout.dropBtn} onClick={() => fileInputRef.current.click()}>Upload File</button>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    style={layout.dropBtn}
+                  >
+                    Download Template
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current.click()}
+                    style={layout.dropBtn}
+                  >
+                    Upload File
+                  </button>
                 </div>
               )}
             </div>
+          )}
 
-            <button style={layout.btn} onClick={() => setShowModal(true)}>+ Baru</button>
+          {/* TAMBAH ADMIN */}
+          {isAdmin && (
+            <button
+              style={layout.btn}
+              onClick={() => setShowModal(true)}
+            >
+              + Baru
+            </button>
+          )}
 
-            <input type="file" ref={fileInputRef} hidden onChange={handleImportFile} />
-          </div>
+          {/* FILE INPUT */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            hidden
+            onChange={handleImportFile}
+          />
         </div>
-
-        {/* TABLE */}
-        <table style={layout.table}>
-          <thead>
-            <tr>
-              <th style={layout.th}>NAMA</th>
-              <th style={layout.th}>QUANTITY</th>
-              <th style={layout.th}>ACTION</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {data
-              .filter(item =>
-                item.nama.toLowerCase().includes(search.toLowerCase())
-              )
-              .map((item, i) => (
-                <tr key={i}>
-                  <td style={layout.td}>{item.nama}</td>
-                  <td style={layout.td}>{item.quantity}</td>
-
-                  <td style={layout.td}>
-                    <div style={layout.actionWrap}>
-                      <button style={layout.viewBtn} onClick={() => handleView(item)}><FaEye /></button>
-                      <button style={layout.editBtn} onClick={() => handleEdit(item)}><FaEdit /></button>
-                      <button style={layout.deleteBtn} onClick={() => handleDelete(item.db_id)}><FaTrash /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
       </div>
 
-      {/* MODAL FORM */}
-      {showModal && (
-        <div style={layout.overlay}>
-          <div style={layout.modal}>
-            <h3>{isEdit ? "Edit Skylift" : "Tambah Skylift"}</h3>
+      {/* TABLE */}
+      <table style={layout.table}>
+        <thead>
+          <tr>
+            <th style={layout.th}>NAMA</th>
+            <th style={layout.th}>QUANTITY</th>
+            <th style={layout.th}>ACTION</th>
+          </tr>
+        </thead>
 
-            <input
-              name="nama"
-              placeholder="Nama"
-              value={form.nama}
-              onChange={handleChange}
-              style={layout.input}
-            />
+        <tbody>
+          {data
+            .filter((item) =>
+              item.nama.toLowerCase().includes(search.toLowerCase())
+            )
+            .map((item, i) => (
+              <tr key={i}>
+                <td style={layout.td}>{item.nama}</td>
+                <td style={layout.td}>{item.quantity}</td>
 
-            <input
-              name="quantity"
-              type="number"
-              placeholder="Quantity"
-              value={form.quantity}
-              onChange={handleChange}
-              style={layout.input}
-            />
+                <td style={layout.td}>
+                  <div style={layout.actionWrap}>
+                    <button
+                      style={layout.viewBtn}
+                      onClick={() => handleView(item)}
+                    >
+                      <FaEye />
+                    </button>
 
-            <div style={layout.modalBtnWrap}>
-              <button style={layout.saveBtn} onClick={handleSave}>Simpan</button>
-              <button style={layout.cancelBtn} onClick={resetForm}>Batal</button>
-            </div>
-          </div>
-        </div>
-      )}
+                    {isAdmin && (
+                      <>
+                        <button
+                          style={layout.editBtn}
+                          onClick={() => handleEdit(item)}
+                        >
+                          <FaEdit />
+                        </button>
 
-      {/* MODAL DETAIL */}
-      {showDetail && detailData && (
-        <div style={layout.overlay}>
-          <div style={layout.modal}>
-            <h3>Detail Skylift</h3>
-            <p><b>Nama:</b> {detailData.nama}</p>
-            <p><b>Quantity:</b> {detailData.quantity}</p>
-
-            <button style={{ ...layout.cancelBtn, width: "100%" }} onClick={() => setShowDetail(false)}>Tutup</button>
-          </div>
-        </div>
-      )}
+                        <button
+                          style={layout.deleteBtn}
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <FaTrash />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
     </div>
-  );
-};
+
+    {/* MODAL FORM */}
+    {showModal && (
+      <div style={layout.overlay}>
+        <div style={layout.modal}>
+          <h3>{isEdit ? "Edit Skylift" : "Tambah Skylift"}</h3>
+
+          <input
+            name="nama"
+            placeholder="Nama"
+            value={form.nama}
+            onChange={handleChange}
+            style={layout.input}
+          />
+
+          <input
+            name="quantity"
+            type="number"
+            placeholder="Quantity"
+            value={form.quantity}
+            onChange={handleChange}
+            style={layout.input}
+          />
+
+          <div style={layout.modalBtnWrap}>
+            <button style={layout.saveBtn} onClick={handleSave}>
+              Simpan
+            </button>
+            <button style={layout.cancelBtn} onClick={resetForm}>
+              Batal
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* MODAL DETAIL */}
+    {showDetail && detailData && (
+      <div style={layout.overlay}>
+        <div style={layout.modal}>
+          <h3>Detail Skylift</h3>
+
+          <p>
+            <b>Nama:</b> {detailData.nama}
+          </p>
+          <p>
+            <b>Quantity:</b> {detailData.quantity}
+          </p>
+
+          <button
+            style={{ ...layout.cancelBtn, width: "100%" }}
+            onClick={() => setShowDetail(false)}
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+  )}
 
 const layout = {
-    container: {
-        display: "flex",
-        height: "100vh"
-    },
+  container: {
+    display: "flex",
+    height: "100vh",
+  },
 
-    content: {
-        flex: 1,
-        padding: "30px",
-        overflowY: "auto"
-    },
+  content: {
+    flex: 1,
+    padding: "30px",
+    overflowY: "auto",
+  },
 
-    topBar: {
-        display: "flex",
-        justifyContent: "space-between",
-        marginBottom: "20px"
-    },
+  topBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "20px",
+  },
 
-    search: {
-        width: "300px",
-        padding: "10px",
-        borderRadius: "20px",
-        border: "none",
-        background: "#9E9E9E",
-        color: "white",
-        outline: "none"
-    },
+  search: {
+    width: "300px",
+    padding: "10px",
+    borderRadius: "20px",
+    border: "none",
+    background: "#9E9E9E",
+    color: "white",
+    outline: "none",
+  },
 
-    btn: {
-        background: "#2F1F6B",
-        color: "white",
-        padding: "10px 20px",
-        borderRadius: "20px",
-        border: "none",
-        marginLeft: "10px",
-        cursor: "pointer"
-    },
+  btn: {
+    background: "#2F1F6B",
+    color: "white",
+    padding: "10px 20px",
+    borderRadius: "20px",
+    border: "none",
+    marginLeft: "10px",
+    cursor: "pointer",
+  },
 
-    table: {
-        width: "100%",
-        borderCollapse: "collapse",
-        background: "white",
-        borderRadius: "12px",
-        overflow: "hidden"
-    },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    background: "white",
+    borderRadius: "12px",
+    overflow: "hidden",
+  },
 
-    th: {
-        padding: "12px",
-        borderBottom: "2px solid #ddd",
-        textAlign: "center",
-        background: "#F5F6FA",
-        fontWeight: "600"
-    },
+  th: {
+    padding: "12px",
+    borderBottom: "2px solid #ddd",
+    textAlign: "center",
+    background: "#F5F6FA",
+    fontWeight: "600",
+  },
 
-    td: {
-        padding: "12px",
-        borderBottom: "1px solid #eee",
-        textAlign: "center",
-        transition: "0.2s"
-    },
+  td: {
+    padding: "12px",
+    borderBottom: "1px solid #eee",
+    textAlign: "center",
+    transition: "0.2s",
+  },
 
-    actionWrap: {
-        display: "flex",
-        justifyContent: "center",
-        gap: "10px"
-    },
+  actionWrap: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "10px",
+  },
 
-    viewBtn: {
-        background: "#F1F93B",
-        border: "none",
-        padding: "7px 10px",
-        cursor: "pointer",
-        borderRadius: "6px"
-    },
+  viewBtn: {
+    background: "#F1F93B",
+    border: "none",
+    padding: "7px 10px",
+    cursor: "pointer",
+    borderRadius: "6px",
+  },
 
-    editBtn: {
-        background: "#3DA5FF",
-        color: "white",
-        border: "none",
-        padding: "7px 10px",
-        cursor: "pointer",
-        borderRadius: "6px"
-    },
+  editBtn: {
+    background: "#3DA5FF",
+    color: "white",
+    border: "none",
+    padding: "7px 10px",
+    cursor: "pointer",
+    borderRadius: "6px",
+  },
 
-    deleteBtn: {
-        background: "#FF4D4D",
-        color: "white",
-        border: "none",
-        padding: "7px 10px",
-        cursor: "pointer",
-        borderRadius: "6px"
-    },
+  deleteBtn: {
+    background: "#FF4D4D",
+    color: "white",
+    border: "none",
+    padding: "7px 10px",
+    cursor: "pointer",
+    borderRadius: "6px",
+  },
 
-    overlay: {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000
-    },
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
 
-    modal: {
-        background: "white",
-        padding: "20px",
-        width: "400px",
-        borderRadius: "12px"
-    },
+  modal: {
+    background: "white",
+    padding: "20px",
+    width: "400px",
+    borderRadius: "12px",
+  },
 
-    input: {
-        width: "100%",
-        padding: "10px",
-        marginBottom: "10px",
-        boxSizing: "border-box",
-        borderRadius: "6px",
-        border: "1px solid #ddd"
-    },
+  input: {
+    width: "100%",
+    padding: "10px",
+    marginBottom: "10px",
+    boxSizing: "border-box",
+    borderRadius: "6px",
+    border: "1px solid #ddd",
+  },
 
-    modalBtnWrap: {
-        display: "flex",
-        justifyContent: "space-between"
-    },
+  modalBtnWrap: {
+    display: "flex",
+    justifyContent: "space-between",
+  },
 
-    saveBtn: {
-        background: "#2F1F6B",
-        color: "white",
-        width: "48%",
-        padding: "10px",
-        border: "none",
-        cursor: "pointer",
-        borderRadius: "6px"
-    },
+  saveBtn: {
+    background: "#2F1F6B",
+    color: "white",
+    width: "48%",
+    padding: "10px",
+    border: "none",
+    cursor: "pointer",
+    borderRadius: "6px",
+  },
 
-    cancelBtn: {
-        background: "#b51414ff",
-        color: "white",
-        width: "48%",
-        padding: "10px",
-        border: "none",
-        cursor: "pointer",
-        borderRadius: "6px"
-    },
+  cancelBtn: {
+    background: "#b51414ff",
+    color: "white",
+    width: "48%",
+    padding: "10px",
+    border: "none",
+    cursor: "pointer",
+    borderRadius: "6px",
+  },
 
-    dropdown: {
-        position: "absolute",
-        top: "45px",
-        right: "0",
-        background: "white",
-        border: "1px solid #ddd",
-        padding: "10px",
-        borderRadius: "8px",
-        zIndex: 99
-    },
+  dropdown: {
+    position: "absolute",
+    top: "45px",
+    right: "0",
+    background: "white",
+    border: "1px solid #ddd",
+    padding: "10px",
+    borderRadius: "8px",
+    zIndex: 99,
+  },
 
-    dropBtn: {
-        width: "100%",
-        marginBottom: "5px",
-        cursor: "pointer",
-        padding: "6px",
-        border: "none",
-        background: "#F1F1F1",
-        borderRadius: "5px"
-    }
+  dropBtn: {
+    width: "100%",
+    marginBottom: "5px",
+    cursor: "pointer",
+    padding: "6px",
+    border: "none",
+    background: "#F1F1F1",
+    borderRadius: "5px",
+  },
 };
-
 
 export default Skylift;

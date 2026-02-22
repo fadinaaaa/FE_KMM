@@ -61,6 +61,16 @@ const PergantianAlatKerja = () => {
     fetchItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const token = localStorage.getItem("token");
+
+  const role = localStorage.getItem("role");
+  const isAdmin = role === "admin";
+
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
 
   // Signature resize listener (saat modal terbuka)
   useEffect(() => {
@@ -83,7 +93,7 @@ const PergantianAlatKerja = () => {
   // GET transaksi pergantian
   const fetchPergantian = async () => {
     try {
-      const res = await axios.get(`${API_URL}/pergantian-alat`);
+      const res = await axios.get(`${API_URL}/pergantian-alat`, authHeader);
       const list = res.data?.data || res.data || [];
 
       const normalized = list.map((r) => ({
@@ -109,7 +119,7 @@ const PergantianAlatKerja = () => {
   // GET items untuk autocomplete
   const fetchItems = async () => {
     try {
-      const res = await axios.get(`${API_URL}/items`);
+      const res = await axios.get(`${API_URL}/items`, authHeader);
       const list = res.data || [];
 
       const normalized = list.map((it) => ({
@@ -368,11 +378,16 @@ const PergantianAlatKerja = () => {
 
       if (isEdit) {
         fd.append("_method", "PUT");
-        await axios.post(`${API_URL}/pergantian-alat/${form.id}`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await axios.post(
+          `${API_URL}/pergantian-alat/${form.id}`,
+          fd,
+          authHeader,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
       } else {
-        await axios.post(`${API_URL}/pergantian-alat`, fd, {
+        await axios.post(`${API_URL}/pergantian-alat`, fd, authHeader, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
@@ -405,7 +420,7 @@ const PergantianAlatKerja = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus data?")) return;
     try {
-      await axios.delete(`${API_URL}/pergantian-alat/${id}`);
+      await axios.delete(`${API_URL}/pergantian-alat/${id}`, authHeader);
       alert("Data berhasil dihapus");
       fetchPergantian();
       // optional: fetchItems();
@@ -417,7 +432,7 @@ const PergantianAlatKerja = () => {
 
   // ================= EXPORT =================
   const handleExport = () => {
-    window.open(`${API_URL}/pergantian-alat-export`, "_blank");
+    window.open(`${API_URL}/pergantian-alat-export`, "_blank", authHeader);
   };
 
   // ================= IMPORT =================
@@ -429,7 +444,11 @@ const PergantianAlatKerja = () => {
     formData.append("file", file);
 
     try {
-      await axios.post(`${API_URL}/pergantian-alat-import`, formData);
+      await axios.post(
+        `${API_URL}/pergantian-alat-import`,
+        formData,
+        authHeader,
+      );
       alert("Import berhasil ✅");
       fetchPergantian();
       setShowImportMenu(false);
@@ -473,43 +492,56 @@ const PergantianAlatKerja = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div>
-            <button style={layout.btn} onClick={handleExport}>
-              Export
-            </button>
+<div>
+          {/* EXPORT */}
+          <button style={layout.btn} onClick={handleExport}>
+            Export
+          </button>
+
+          {/* IMPORT ADMIN */}
+          {isAdmin && (
             <div style={{ position: "relative", display: "inline-block" }}>
               <button
                 style={layout.btn}
-                onClick={() => setShowImportMenu(!showImportMenu)}>
+                onClick={() => setShowImportMenu(!showImportMenu)}
+              >
                 Import
               </button>
+
               {showImportMenu && (
                 <div style={layout.dropdown}>
                   <button
                     onClick={handleDownloadTemplate}
-                    style={layout.dropBtn}>
+                    style={layout.dropBtn}
+                  >
                     Download Template
                   </button>
                   <button
                     onClick={() => fileInputRef.current.click()}
-                    style={layout.dropBtn}>
+                    style={layout.dropBtn}
+                  >
                     Upload File
                   </button>
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAMBAH */}
+          {isAdmin && (
             <button style={layout.btn} onClick={openCreate}>
               + Baru
             </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: "none" }}
-              onChange={handleImportFile}
-            />
-          </div>
-        </div>
+          )}
 
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleImportFile}
+          />
+        </div>
+      </div>
         {/* TABLE */}
         <table style={layout.table}>
           <thead>
@@ -552,7 +584,8 @@ const PergantianAlatKerja = () => {
                       <a
                         href={r.foto_lama_url}
                         target="_blank"
-                        rel="noreferrer">
+                        rel="noreferrer"
+                      >
                         Lihat Foto
                       </a>
                     ) : (
@@ -565,7 +598,8 @@ const PergantianAlatKerja = () => {
                       <a
                         href={r.tanda_tangan_url}
                         target="_blank"
-                        rel="noreferrer">
+                        rel="noreferrer"
+                      >
                         Lihat TTD
                       </a>
                     ) : (
@@ -577,19 +611,24 @@ const PergantianAlatKerja = () => {
                     <div style={layout.actionWrap}>
                       <button
                         style={layout.viewBtn}
-                        onClick={() => openView(r)}>
+                        onClick={() => openView(r)}
+                      >
                         <FaEye />
                       </button>
-                      <button
-                        style={layout.editBtn}
+                      {isAdmin && (
+                        <>
+                          <button
+                            style={layout.editBtn}
                         onClick={() => openEdit(r)}>
                         <FaEdit />
-                      </button>
-                      <button
-                        style={layout.deleteBtn}
+                          </button>
+                          <button
+                            style={layout.deleteBtn}
                         onClick={() => handleDelete(r.id)}>
                         <FaTrash />
-                      </button>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -629,7 +668,8 @@ const PergantianAlatKerja = () => {
                     <div
                       key={it.id}
                       style={layout.autocompleteItem}
-                      onMouseDown={() => pickItem(it)}>
+                      onMouseDown={() => pickItem(it)}
+                    >
                       {it.nama}{" "}
                       <span style={{ opacity: 0.6 }}>
                         ({it.kode || "-"} • {it.satuan || "-"} • saldo:{" "}
@@ -698,7 +738,8 @@ const PergantianAlatKerja = () => {
                   marginTop: -6,
                   marginBottom: 10,
                   fontSize: 13,
-                }}>
+                }}
+              >
                 {nominalWarn}
               </div>
             ) : null}
@@ -744,7 +785,8 @@ const PergantianAlatKerja = () => {
                   borderRadius: 8,
                   overflow: "hidden",
                   width: "100%",
-                }}>
+                }}
+              >
                 <SignatureCanvas
                   ref={sigRef}
                   penColor="black"
@@ -767,14 +809,16 @@ const PergantianAlatKerja = () => {
                 <button
                   type="button"
                   style={{ ...layout.smallBtn, background: "#666" }}
-                  onClick={clearSignature}>
+                  onClick={clearSignature}
+                >
                   Hapus TTD
                 </button>
 
                 <button
                   type="button"
                   style={{ ...layout.smallBtn, background: "#2F1F6B" }}
-                  onClick={previewSignature}>
+                  onClick={previewSignature}
+                >
                   Preview
                 </button>
               </div>
@@ -872,7 +916,8 @@ const PergantianAlatKerja = () => {
 
             <button
               onClick={() => setShowDetail(false)}
-              style={{ ...layout.cancelBtn, width: "100%" }}>
+              style={{ ...layout.cancelBtn, width: "100%" }}
+            >
               Tutup
             </button>
           </div>
