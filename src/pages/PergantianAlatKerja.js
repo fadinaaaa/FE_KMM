@@ -2,6 +2,7 @@
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { FaEdit, FaEye, FaTrash } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import Sidebar from "../components/Sidebar";
 import SignatureCanvas from "react-signature-canvas";
 
@@ -28,6 +29,8 @@ const PergantianAlatKerja = () => {
   // ===== FILE =====
   const fileRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [showImportMenu, setShowImportMenu] = useState(false);
+  const fileInputRef = useRef(null);
 
   // ===== SIGNATURE =====
   const sigRef = useRef(null);
@@ -229,7 +232,7 @@ const PergantianAlatKerja = () => {
 
     if (value.trim().length >= 1) {
       const filtered = items.filter((it) =>
-        it.nama.toLowerCase().includes(value.toLowerCase())
+        it.nama.toLowerCase().includes(value.toLowerCase()),
       );
       setFilteredItems(filtered);
       setShowAuto(true);
@@ -412,6 +415,50 @@ const PergantianAlatKerja = () => {
     }
   };
 
+  // ================= EXPORT =================
+  const handleExport = () => {
+    window.open(`${API_URL}/pergantian-alat-export`, "_blank");
+  };
+
+  // ================= IMPORT =================
+  const handleImportFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      await axios.post(`${API_URL}/pergantian-alat-import`, formData);
+      alert("Import berhasil ✅");
+      fetchPergantian();
+      setShowImportMenu(false);
+      fileInputRef.current.value = null;
+    } catch (error) {
+      console.error(error);
+      alert("Import gagal");
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const worksheetData = [
+      {
+        item_id: "",
+        nama_barang: "",
+        satuan: "",
+        tanggal: "",
+        nominal: "",
+        pic: "",
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+
+    XLSX.writeFile(workbook, "template_pergantian_alat.xlsx");
+  };
+
   // ================= RENDER =================
   return (
     <div style={layout.container}>
@@ -426,9 +473,41 @@ const PergantianAlatKerja = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button style={layout.btn} onClick={openCreate}>
-            + Baru
-          </button>
+          <div>
+            <button style={layout.btn} onClick={handleExport}>
+              Export
+            </button>
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <button
+                style={layout.btn}
+                onClick={() => setShowImportMenu(!showImportMenu)}>
+                Import
+              </button>
+              {showImportMenu && (
+                <div style={layout.dropdown}>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    style={layout.dropBtn}>
+                    Download Template
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current.click()}
+                    style={layout.dropBtn}>
+                    Upload File
+                  </button>
+                </div>
+              )}
+            </div>
+            <button style={layout.btn} onClick={openCreate}>
+              + Baru
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleImportFile}
+            />
+          </div>
         </div>
 
         {/* TABLE */}
@@ -452,7 +531,9 @@ const PergantianAlatKerja = () => {
               .filter((r) => {
                 const term = search.toLowerCase();
                 return (
-                  String(r.item_kode || r.id).toLowerCase().includes(term) ||
+                  String(r.item_kode || r.id)
+                    .toLowerCase()
+                    .includes(term) ||
                   String(r.nama_barang).toLowerCase().includes(term) ||
                   String(r.pic).toLowerCase().includes(term)
                 );
@@ -468,7 +549,10 @@ const PergantianAlatKerja = () => {
 
                   <td style={layout.td}>
                     {r.foto_lama_url ? (
-                      <a href={r.foto_lama_url} target="_blank" rel="noreferrer">
+                      <a
+                        href={r.foto_lama_url}
+                        target="_blank"
+                        rel="noreferrer">
                         Lihat Foto
                       </a>
                     ) : (
@@ -481,8 +565,7 @@ const PergantianAlatKerja = () => {
                       <a
                         href={r.tanda_tangan_url}
                         target="_blank"
-                        rel="noreferrer"
-                      >
+                        rel="noreferrer">
                         Lihat TTD
                       </a>
                     ) : (
@@ -492,16 +575,19 @@ const PergantianAlatKerja = () => {
 
                   <td style={layout.td}>
                     <div style={layout.actionWrap}>
-                      <button style={layout.viewBtn} onClick={() => openView(r)}>
+                      <button
+                        style={layout.viewBtn}
+                        onClick={() => openView(r)}>
                         <FaEye />
                       </button>
-                      <button style={layout.editBtn} onClick={() => openEdit(r)}>
+                      <button
+                        style={layout.editBtn}
+                        onClick={() => openEdit(r)}>
                         <FaEdit />
                       </button>
                       <button
                         style={layout.deleteBtn}
-                        onClick={() => handleDelete(r.id)}
-                      >
+                        onClick={() => handleDelete(r.id)}>
                         <FaTrash />
                       </button>
                     </div>
@@ -543,8 +629,7 @@ const PergantianAlatKerja = () => {
                     <div
                       key={it.id}
                       style={layout.autocompleteItem}
-                      onMouseDown={() => pickItem(it)}
-                    >
+                      onMouseDown={() => pickItem(it)}>
                       {it.nama}{" "}
                       <span style={{ opacity: 0.6 }}>
                         ({it.kode || "-"} • {it.satuan || "-"} • saldo:{" "}
@@ -579,9 +664,7 @@ const PergantianAlatKerja = () => {
               type="number"
               min={1}
               placeholder={
-                saldoAktif
-                  ? `Nominal (Max ${saldoAktif})`
-                  : "Nominal"
+                saldoAktif ? `Nominal (Max ${saldoAktif})` : "Nominal"
               }
               value={form.nominal}
               disabled={!form.item_id}
@@ -594,7 +677,7 @@ const PergantianAlatKerja = () => {
                 if (saldoAktif > 0 && value !== "" && value > saldoAktif) {
                   value = saldoAktif;
                   setNominalWarn(
-                    `Nominal tidak boleh lebih dari saldo (${saldoAktif}).`
+                    `Nominal tidak boleh lebih dari saldo (${saldoAktif}).`,
                   );
                 } else {
                   setNominalWarn("");
@@ -615,8 +698,7 @@ const PergantianAlatKerja = () => {
                   marginTop: -6,
                   marginBottom: 10,
                   fontSize: 13,
-                }}
-              >
+                }}>
                 {nominalWarn}
               </div>
             ) : null}
@@ -662,8 +744,7 @@ const PergantianAlatKerja = () => {
                   borderRadius: 8,
                   overflow: "hidden",
                   width: "100%",
-                }}
-              >
+                }}>
                 <SignatureCanvas
                   ref={sigRef}
                   penColor="black"
@@ -686,16 +767,14 @@ const PergantianAlatKerja = () => {
                 <button
                   type="button"
                   style={{ ...layout.smallBtn, background: "#666" }}
-                  onClick={clearSignature}
-                >
+                  onClick={clearSignature}>
                   Hapus TTD
                 </button>
 
                 <button
                   type="button"
                   style={{ ...layout.smallBtn, background: "#2F1F6B" }}
-                  onClick={previewSignature}
-                >
+                  onClick={previewSignature}>
                   Preview
                 </button>
               </div>
@@ -793,8 +872,7 @@ const PergantianAlatKerja = () => {
 
             <button
               onClick={() => setShowDetail(false)}
-              style={{ ...layout.cancelBtn, width: "100%" }}
-            >
+              style={{ ...layout.cancelBtn, width: "100%" }}>
               Tutup
             </button>
           </div>
@@ -970,6 +1048,27 @@ const layout = {
     padding: "10px",
     cursor: "pointer",
     borderBottom: "1px solid #f0f0f0",
+  },
+
+  dropdown: {
+    position: "absolute",
+    top: "45px",
+    right: "0",
+    background: "white",
+    border: "1px solid #ddd",
+    padding: "10px",
+    borderRadius: "8px",
+    zIndex: 99,
+  },
+
+  dropBtn: {
+    width: "100%",
+    marginBottom: "5px",
+    cursor: "pointer",
+    padding: "6px",
+    border: "none",
+    background: "#F1F1F1",
+    borderRadius: "5px",
   },
 };
 
