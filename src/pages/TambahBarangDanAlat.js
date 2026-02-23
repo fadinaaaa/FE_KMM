@@ -129,7 +129,7 @@ const TambahBarangDanAlat = () => {
             </button>
 
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/barang")}
               style={style.cancelBtn}
             >
               Batal

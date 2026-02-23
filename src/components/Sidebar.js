@@ -1,27 +1,52 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import LogoImg from "../assets/logo.png";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const Sidebar = () => {
   const location = useLocation();
   const [hovered, setHovered] = useState(null);
+  const navigate = useNavigate();
 
   const menuItems = [
-    { name: "DASHBOARD", path: "/" },
+    { name: "DASHBOARD", path: "/dashboard" },
     { name: "BARANG DAN ALAT", path: "/barang" },
     { name: "SKYLIFT", path: "/skylift" },
     { name: "KELUAR MASUK BARANG", path: "/keluarmasuk" },
     { name: "PERGANTIAN ALAT KERJA", path: "/pergantian" },
     { name: "PEMINJAMAN BARANG", path: "/peminjaman" },
-    { name: "LOGOUT", path: "/logout", isLogout: true },
+    { name: "LOGOUT", isLogout: true },
   ];
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.post(
+        "http://localhost:8000/api/logout",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      // hapus token
+      localStorage.removeItem("token");
+
+      // redirect login
+      navigate("/");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
 
   return (
     <div style={styles.sidebar}>
-
       {/* ===== TOP AREA ===== */}
       <div>
-
         {/* LOGO */}
         <div style={styles.logoBox}>
           <img src={LogoImg} alt="Logo TTMT" style={styles.logoImg} />
@@ -30,40 +55,45 @@ const Sidebar = () => {
 
         {/* MENU */}
         <ul style={styles.menu}>
-          {menuItems.map((item, index) => {
-            const isActive = location.pathname === item.path;
-            const isHover = hovered === index;
+  {menuItems.map((item, index) => {
+    const isActive = location.pathname === item.path;
+    const isHover = hovered === index;
 
-            return (
-              <li
-                key={index}
-                onMouseEnter={() => setHovered(index)}
-                onMouseLeave={() => setHovered(null)}
-                style={
-                  item.isLogout
-                    ? logoutMenuStyle
-                    : menuStyle(isActive || isHover)
-                }
-              >
-                <Link
-                  to={item.path}
-                  style={{
-                    ...styles.link,
-                    color: item.isLogout ? "#ff4d4f" : "inherit",
-                  }}
-                >
-                  {item.name}
-                </Link>
-              </li>
+    if (item.isLogout) {
+      return (
+        <li
+          key={index}
+          style={logoutMenuStyle}
+          onClick={handleLogout}
+        >
+          <span
+            style={{
+              ...styles.link,
+              color: "#ff4d4f",
+              cursor: "pointer",
+            }}
+          >
+            {item.name}
+          </span>
+        </li>
+      );
+    }
+
+    return (
+      <li
+        key={index}
+        onMouseEnter={() => setHovered(index)}
+        onMouseLeave={() => setHovered(null)}
+        style={menuStyle(isActive || isHover)}
+      >
+        <Link to={item.path} style={styles.link}>
+          {item.name}
+        </Link>
+      </li>
             );
           })}
         </ul>
-
       </div>
-
-      {/* LOGOUT */}
-      <div style={styles.logout}>Logout</div>
-
     </div>
   );
 };

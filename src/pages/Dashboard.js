@@ -20,18 +20,27 @@ ChartJS.register(
   Legend,
   CategoryScale,
   LinearScale,
-  BarElement,
+  BarElement
 );
 
 const Dashboard = () => {
   const API_URL = "http://localhost:8000/api";
 
-  const [bulan, setBulan] = useState("Jan");
   const [tahun, setTahun] = useState("2025");
 
   const [totalItems, setTotalItems] = useState(0);
   const [totalSkylift, setTotalSkylift] = useState(0);
   const [totalKeluarMasuk, setTotalKeluarMasuk] = useState(0);
+  const [totalPergantian, setTotalPergantian] = useState(0);
+  const [totalPeminjaman, setTotalPeminjaman] = useState(0);
+
+  const token = localStorage.getItem("token");
+
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
 
   const [pieData, setPieData] = useState({
     labels: [
@@ -43,7 +52,7 @@ const Dashboard = () => {
     ],
     datasets: [
       {
-        data: [0, 0, 0, 12, 14],
+        data: [0, 0, 0, 0, 0],
         backgroundColor: [
           "#6c5ce7",
           "#00b894",
@@ -54,65 +63,65 @@ const Dashboard = () => {
       },
     ],
   });
-  const token = localStorage.getItem("token");
 
-  const authHeader = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
   const [barData, setBarData] = useState({
-    labels: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun"],
+    labels: [
+      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    ],
     datasets: [
-      {
-        label: "Barang & Alat",
-        data: [0, 0, 0, 0, 0, 0],
-        backgroundColor: "#6c5ce7",
-      },
-      {
-        label: "Skylift",
-        data: [0, 0, 0, 0, 0, 0],
-        backgroundColor: "#00b894",
-      },
-      {
-        label: "Keluar Masuk",
-        data: [0, 0, 0, 0, 0, 0],
-        backgroundColor: "#fdcb6e",
-      },
-      {
-        label: "Pergantian Alat",
-        data: [5, 7, 6, 9, 4, 8],
-        backgroundColor: "#0984e3",
-      },
-      {
-        label: "Peminjaman",
-        data: [12, 10, 14, 9, 11, 15],
-        backgroundColor: "#e17055",
-      },
+      { label: "Barang & Alat", data: Array(12).fill(0), backgroundColor: "#6c5ce7" },
+      { label: "Skylift", data: Array(12).fill(0), backgroundColor: "#00b894" },
+      { label: "Keluar Masuk", data: Array(12).fill(0), backgroundColor: "#fdcb6e" },
+      { label: "Pergantian Alat", data: Array(12).fill(0), backgroundColor: "#0984e3" },
+      { label: "Peminjaman", data: Array(12).fill(0), backgroundColor: "#e17055" },
     ],
   });
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [tahun]);
+
+  const safeMonthYear = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (isNaN(date)) return null;
+    return {
+      month: date.getMonth(),
+      year: date.getFullYear(),
+    };
+  };
 
   const fetchData = async () => {
     try {
-      const [skyliftRes, itemsRes, keluarRes] = await Promise.all([
-        axios.get(`${API_URL}/skylifts`), authHeader,
-        axios.get(`${API_URL}/items`),authHeader,
-        axios.get(`${API_URL}/keluar-masuk`), authHeader,
+      const [
+        skyliftRes,
+        itemsRes,
+        keluarRes,
+        pergantianRes,
+        peminjamanRes,
+      ] = await Promise.all([
+        axios.get(`${API_URL}/skylifts`, authHeader),
+        axios.get(`${API_URL}/items`, authHeader),
+        axios.get(`${API_URL}/keluar-masuk`, authHeader),
+        axios.get(`${API_URL}/pergantian-alat`, authHeader),
+        axios.get(`${API_URL}/peminjaman-barang`, authHeader),
       ]);
 
-      const skylifts = skyliftRes.data?.data || skyliftRes.data || [];
-      const items = itemsRes.data?.data || itemsRes.data || [];
-      const keluarMasuk = keluarRes.data?.data || keluarRes.data || [];
+      const skylifts = skyliftRes.data?.data || [];
+      const items = itemsRes.data?.data || [];
+      const keluarMasuk = keluarRes.data?.data || [];
+      const pergantian = pergantianRes.data?.data || [];
+      const peminjaman = peminjamanRes.data?.data || [];
 
+      // ===== TOTAL CARD =====
       setTotalItems(items.length);
       setTotalSkylift(skylifts.length);
       setTotalKeluarMasuk(keluarMasuk.length);
+      setTotalPergantian(pergantian.length);
+      setTotalPeminjaman(peminjaman.length);
 
-      // Update PIE (tanpa ubah tampilan)
+      // ===== PIE UPDATE =====
       setPieData((prev) => ({
         ...prev,
         datasets: [
@@ -122,34 +131,46 @@ const Dashboard = () => {
               items.length,
               skylifts.length,
               keluarMasuk.length,
-              prev.datasets[0].data[3],
-              prev.datasets[0].data[4],
+              pergantian.length,
+              peminjaman.length,
             ],
           },
         ],
       }));
 
-      // Hitung keluar masuk per bulan (6 bulan pertama saja agar sama)
-      const monthly = [0, 0, 0, 0, 0, 0];
+      // ===== BULANAN =====
+      const monthlyItems = Array(12).fill(0);
+      const monthlySkylift = Array(12).fill(0);
+      const monthlyKeluar = Array(12).fill(0);
+      const monthlyPergantian = Array(12).fill(0);
+      const monthlyPeminjaman = Array(12).fill(0);
 
-      keluarMasuk.forEach((item) => {
-        if (item?.tanggal) {
-          const date = new Date(item.tanggal);
-          const month = date.getMonth();
-          if (month >= 0 && month <= 5) {
-            monthly[month]++;
+      const filterByYear = (data, field, targetArray) => {
+        data.forEach((item) => {
+          const result = safeMonthYear(item[field]);
+          if (result && result.year.toString() === tahun) {
+            targetArray[result.month]++;
           }
-        }
+        });
+      };
+
+      filterByYear(items, "created_at", monthlyItems);
+      filterByYear(skylifts, "created_at", monthlySkylift);
+      filterByYear(keluarMasuk, "tanggal", monthlyKeluar);
+      filterByYear(pergantian, "tanggal", monthlyPergantian);
+      filterByYear(peminjaman, "tanggal", monthlyPeminjaman);
+
+      setBarData({
+        labels: barData.labels,
+        datasets: [
+          { label: "Barang & Alat", data: monthlyItems, backgroundColor: "#6c5ce7" },
+          { label: "Skylift", data: monthlySkylift, backgroundColor: "#00b894" },
+          { label: "Keluar Masuk", data: monthlyKeluar, backgroundColor: "#fdcb6e" },
+          { label: "Pergantian Alat", data: monthlyPergantian, backgroundColor: "#0984e3" },
+          { label: "Peminjaman", data: monthlyPeminjaman, backgroundColor: "#e17055" },
+        ],
       });
 
-      setBarData((prev) => ({
-        ...prev,
-        datasets: prev.datasets.map((dataset) =>
-          dataset.label === "Keluar Masuk"
-            ? { ...dataset, data: monthly }
-            : dataset,
-        ),
-      }));
     } catch (error) {
       console.error("Dashboard Error:", error);
     }
@@ -158,39 +179,17 @@ const Dashboard = () => {
   return (
     <div style={styles.container}>
       <Sidebar />
-
       <div style={styles.main}>
         <h2 style={styles.title}>Selamat Datang 👋</h2>
 
-        {/* ===== CARD SUMMARY ===== */}
         <div style={styles.cardRow}>
-          <div style={{ ...styles.card, borderTop: "4px solid #6c5ce7" }}>
-            <h4>Barang & Alat</h4>
-            <h1>{totalItems}</h1>
-          </div>
-
-          <div style={{ ...styles.card, borderTop: "4px solid #00b894" }}>
-            <h4>Skylift</h4>
-            <h1>{totalSkylift}</h1>
-          </div>
-
-          <div style={{ ...styles.card, borderTop: "4px solid #fdcb6e" }}>
-            <h4>Keluar Masuk</h4>
-            <h1>{totalKeluarMasuk}</h1>
-          </div>
-
-          <div style={{ ...styles.card, borderTop: "4px solid #0984e3" }}>
-            <h4>Pergantian Alat</h4>
-            <h1>8</h1>
-          </div>
-
-          <div style={{ ...styles.card, borderTop: "4px solid #e17055" }}>
-            <h4>Peminjaman</h4>
-            <h1>15</h1>
-          </div>
+          <Card title="Barang & Alat" value={totalItems} color="#6c5ce7" />
+          <Card title="Skylift" value={totalSkylift} color="#00b894" />
+          <Card title="Keluar Masuk" value={totalKeluarMasuk} color="#fdcb6e" />
+          <Card title="Pergantian Alat" value={totalPergantian} color="#0984e3" />
+          <Card title="Peminjaman" value={totalPeminjaman} color="#e17055" />
         </div>
 
-        {/* ===== GRAFIK AREA ===== */}
         <div style={styles.chartRow}>
           <div style={styles.chartBox}>
             <h3>Distribusi Data</h3>
@@ -200,41 +199,17 @@ const Dashboard = () => {
           </div>
 
           <div style={styles.chartBox}>
-            <div style={styles.chartHeader}>
-              <h3>Aktivitas Bulanan</h3>
-
-              <div style={styles.filterWrap}>
-                <select
-                  value={bulan}
-                  onChange={(e) => setBulan(e.target.value)}
-                  style={styles.select}
-                >
-                  <option>Jan</option>
-                  <option>Feb</option>
-                  <option>Mar</option>
-                  <option>Apr</option>
-                  <option>Mei</option>
-                  <option>Jun</option>
-                  <option>Jul</option>
-                  <option>Agu</option>
-                  <option>Sep</option>
-                  <option>Okt</option>
-                  <option>Nov</option>
-                  <option>Des</option>
-                </select>
-
-                <select
-                  value={tahun}
-                  onChange={(e) => setTahun(e.target.value)}
-                  style={styles.select}
-                >
-                  <option>2023</option>
-                  <option>2024</option>
-                  <option>2025</option>
-                </select>
-              </div>
+            <div style={{ marginBottom: 10 }}>
+              <select
+                value={tahun}
+                onChange={(e) => setTahun(e.target.value)}
+                style={styles.select}
+              >
+                <option>2023</option>
+                <option>2024</option>
+                <option>2025</option>
+              </select>
             </div>
-
             <Bar data={barData} />
           </div>
         </div>
@@ -243,6 +218,12 @@ const Dashboard = () => {
   );
 };
 
+const Card = ({ title, value, color }) => (
+  <div style={{ ...styles.card, borderTop: `4px solid ${color}` }}>
+    <h4>{title}</h4>
+    <h1>{value}</h1>
+  </div>
+);
 /* ================= STYLE ================= */
 /* CSS KAMU TIDAK DIUBAH SAMA SEKALI */
 
