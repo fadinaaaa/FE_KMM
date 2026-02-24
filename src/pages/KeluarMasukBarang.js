@@ -26,6 +26,7 @@ const KeluarMasukBarang = () => {
   const [form, setForm] = useState({
     item_id: "",
     nama: "",
+    kode: "",
     satuan: "",
     keluarmasuk: "",
     tanggal: "",
@@ -33,7 +34,7 @@ const KeluarMasukBarang = () => {
     PIC: "",
     keterangan: "",
   });
- const role = localStorage.getItem("role");
+  const role = localStorage.getItem("role");
   const isAdmin = role === "admin";
 
   const token = localStorage.getItem("token");
@@ -81,6 +82,7 @@ const KeluarMasukBarang = () => {
 
       const normalized = raw.map((item) => ({
         id: item.id,
+        kode: item.kode, 
         item_id: item.item_id,
         nama: item.nama,
         satuan: item.satuan,
@@ -236,6 +238,7 @@ const KeluarMasukBarang = () => {
 
     setForm({
       id: item.id,
+      kode: item.kode,
       item_id: item.item_id,
       nama: item.nama,
       satuan: item.satuan,
@@ -265,28 +268,28 @@ const KeluarMasukBarang = () => {
   };
 
   // ================= EXPORT =================
-const handleExport = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/keluar-masuk-barang/export`, {
-      responseType: "blob",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  const handleExport = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/keluar-masuk-barang/export`, {
+        responseType: "blob",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    // buat link download
-    const url = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "keluar_masuk_barang.xlsx");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  } catch (error) {
-    console.error("Export error:", error);
-    alert("Export gagal");
-  }
-};
+      // buat link download
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "keluar_masuk_barang.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Export error:", error);
+      alert("Export gagal");
+    }
+  };
 
   // ================= IMPORT =================
   const handleImportFile = async (e) => {
@@ -326,86 +329,87 @@ const handleExport = async () => {
   };
 
   return (
-  <div style={layout.container}>
-    <Sidebar />
+    <div style={layout.container}>
+      <Sidebar />
 
-    <div style={layout.content}>
-      {/* TOP BAR */}
-      <div style={layout.topBar}>
-        <input
-          placeholder="Cari ID atau Nama"
-          style={layout.search}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div style={layout.content}>
+        {/* TOP BAR */}
+        <div style={layout.topBar}>
+          <input
+            placeholder="Cari ID atau Nama"
+            style={layout.search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
-        <div>
-          {/* EXPORT */}
-          <button style={layout.btn} onClick={handleExport}>
-            Export
-          </button>
+          <div>
+            {/* EXPORT */}
+            <button style={layout.btn} onClick={handleExport}>
+              Export
+            </button>
 
-          {/* IMPORT */}
-          {isAdmin && (
-            <div style={{ position: "relative", display: "inline-block" }}>
+            {/* IMPORT */}
+            {isAdmin && (
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <button
+                  style={layout.btn}
+                  onClick={() => setShowImportMenu(!showImportMenu)}
+                >
+                  Import
+                </button>
+
+                {showImportMenu && (
+                  <div style={layout.dropdown}>
+                    <button
+                      onClick={handleDownloadTemplate}
+                      style={layout.dropBtn}
+                    >
+                      Download Template
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current.click()}
+                      style={layout.dropBtn}
+                    >
+                      Upload File
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAMBAH */}
+            {isAdmin && (
               <button
                 style={layout.btn}
-                onClick={() => setShowImportMenu(!showImportMenu)}
+                onClick={() => {
+                  setShowModal(true);
+                  setIsEdit(false);
+                  setForm({
+                    item_id: "",
+                    kode: "",
+                    nama: "",
+                    satuan: "",
+                    keluarmasuk: "",
+                    tanggal: "",
+                    nominal: "",
+                    PIC: "",
+                    keterangan: "",
+                  });
+                }}
               >
-                Import
+                + Baru
               </button>
+            )}
 
-              {showImportMenu && (
-                <div style={layout.dropdown}>
-                  <button
-                    onClick={handleDownloadTemplate}
-                    style={layout.dropBtn}
-                  >
-                    Download Template
-                  </button>
-                  <button
-                    onClick={() => fileInputRef.current.click()}
-                    style={layout.dropBtn}
-                  >
-                    Upload File
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAMBAH */}
-          {isAdmin && (
-            <button
-              style={layout.btn}
-              onClick={() => {
-                setShowModal(true);
-                setIsEdit(false);
-                setForm({
-                  item_id: "",
-                  nama: "",
-                  satuan: "",
-                  keluarmasuk: "",
-                  tanggal: "",
-                  nominal: "",
-                  PIC: "",
-                  keterangan: "",
-                });
-              }}
-            >
-              + Baru
-            </button>
-          )}
-
-          {/* FILE INPUT */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: "none" }}
-            onChange={handleImportFile}
-          />
+            {/* FILE INPUT */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleImportFile}
+            />
+          </div>
         </div>
-      </div>
 
         {/* TABLE */}
         <table style={layout.table}>
@@ -432,7 +436,7 @@ const handleExport = async () => {
               })
               .map((item, index) => (
                 <tr key={index}>
-                  <td style={layout.td}>{item.item_id}</td>
+                  <td style={layout.td}>{item.kode}</td>
                   <td style={layout.td}>{item.nama}</td>
                   <td style={layout.td}>{item.satuan}</td>
 
@@ -487,6 +491,13 @@ const handleExport = async () => {
         <div style={layout.overlay}>
           <div style={layout.modal}>
             <h3>{isEdit ? "Edit Data" : "Tambah Data"}</h3>
+
+            <input
+              placeholder="Kode"
+              value={form.kode || "(auto)"}
+              disabled
+              style={{ ...layout.input, background: "#eee" }}
+            />
 
             <input
               value={form.item_id}
