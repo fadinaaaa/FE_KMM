@@ -431,10 +431,27 @@ const PergantianAlatKerja = () => {
   };
 
   // ================= EXPORT =================
-  const handleExport = () => {
-    window.open(`${API_URL}/pergantian-alat-export`, "_blank", authHeader);
-  };
+const handleExport = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/pergantian-alat-export`, {
+      responseType: "blob",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "pergantian_alat.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    console.error("Export error:", error);
+    alert("Export gagal");
+  }
+};
   // ================= IMPORT =================
   const handleImportFile = async (e) => {
     const file = e.target.files[0];
